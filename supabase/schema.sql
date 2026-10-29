@@ -55,3 +55,21 @@ create table if not exists notification_runs (
   sent boolean not null default false
 );
 alter table notification_runs enable row level security;
+
+-- 위험 신호 원인 분석 (PLAN 작업 22). 같은 지표·기준 기간·단계는 저장된 분석을 다시 쓴다
+create table if not exists indicator_explanations (
+  id bigint generated always as identity primary key,
+  indicator_id text not null,
+  period text not null,                       -- 기준 기간 (예: 2026-09, 2026-Q3)
+  status text not null,                       -- 분석할 때의 단계 (crisis·warning·caution)
+  summary text not null,
+  factors jsonb not null,                     -- [{ text, basis: data|news }]
+  check_point text not null default '',       -- 담당자가 확인해 볼 점
+  sources jsonb not null default '[]',        -- 웹 검색 출처 [{ title, url }]
+  used_web_search boolean not null default false,
+  is_sample boolean not null default false,
+  model text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists indicator_explanations_lookup on indicator_explanations (indicator_id, period, status, created_at desc);
+alter table indicator_explanations enable row level security;

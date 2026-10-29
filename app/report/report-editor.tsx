@@ -3,6 +3,7 @@
 // 보고서 초안 편집과 다시 만들기 (DESIGN.md §3.3, PLAN 작업 17~18)
 // 분류마다 글 상자로 고치고, 전체 리스크 수준을 담당자가 고른 뒤 저장한다
 import { useEffect, useState } from "react";
+import { formatElapsed, startTime, useElapsedSeconds } from "../use-elapsed";
 import { useRouter } from "next/navigation";
 import { CATEGORY_LABELS, type Category } from "@/lib/indicators";
 import { periodLabel } from "@/lib/period";
@@ -42,17 +43,6 @@ function reportTitle(report: ReportRecord): string {
 
 // ── AI가 초안을 쓰는 동안의 안내 (보통 2~4분 걸린다)
 
-// 시작한 뒤 지난 초. 시작하지 않았으면 0
-function useElapsedSeconds(startedAt: number | null): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (startedAt === null) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [startedAt]);
-  return startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
-}
-
 // 작업 중에 창을 닫거나 새로고침하려 하면 한 번 묻는다
 function useLeaveWarning(active: boolean) {
   useEffect(() => {
@@ -61,17 +51,6 @@ function useLeaveWarning(active: boolean) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
-}
-
-// 버튼을 누른 시각 (클릭할 때만 부른다)
-function startTime(): number {
-  return Date.now();
-}
-
-function formatElapsed(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
 }
 
 function WaitingNotice({ title, startedAt }: { title: string; startedAt: number }) {

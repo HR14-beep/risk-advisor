@@ -47,10 +47,18 @@ export type GenerateOptions = {
   input: string; // 판정이 끝난 숫자·단계 등 AI에게 넘길 내용
   maxOutputTokens?: number;
   signal?: AbortSignal;
+  model?: string; // 없으면 OPENAI_MODEL
+  timeoutMs?: number; // 없으면 TIMEOUT_MS
+  webSearch?: boolean; // 웹 검색 도구를 쓸 수 있게 한다 (원인 분석, PLAN 작업 22)
+  reasoningEffort?: "low" | "medium" | "high";
+  jsonSchema?: { name: string; schema: Record<string, unknown> }; // 답을 이 모양의 JSON으로 받는다
 };
+
+export type Citation = { title: string; url: string };
 
 export type GenerateResult = {
   text: string;
+  citations: Citation[]; // 웹 검색으로 인용한 기사 (중복 제거)
   model: string;
   usage: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
 };
@@ -59,7 +67,7 @@ type ResponsesBody = {
   status?: string;
   model?: string;
   incomplete_details?: { reason?: string } | null;
-  output?: { content?: { type: string; text?: string }[] }[];
+  output?: { content?: { type: string; text?: string; annotations?: { type: string; title?: string; url?: string }[] }[] }[];
   usage?: { input_tokens: number; output_tokens: number; total_tokens: number };
 };
 
@@ -71,6 +79,18 @@ export function extractText(body: ResponsesBody): string {
     .map((content) => content.text ?? "")
     .join("")
     .trim();
+}
+
+// 웹 검색 인용(url_citation)만 꺼낸다. 주소는 http(s)만 남긴다
+export function extractCitations(body: ResponsesBody): Citation[] {
+  const seen = new Map<string, Citation>();
+  for (const content of (body.output ?? []).flatMap((item) => item.content ?? [])) {
+    for (const a of content.annotations ?? []) {
+      if (a.type !== "url_citation" || !a.url || !/^https?:\/\//.test(a.url) || seen.has(a.url)) continue;
+      seen.set(a.url, { title: a.title || a.url, url: a.url });
+    }
+  }
+  return [...seen.values()];
 }
 
 function errorKind(status: number): AiErrorKind {
@@ -96,8 +116,9 @@ export function assertAiConfigured(): void {
 }
 
 export async function generateText(options: GenerateOptions): Promise<GenerateResult> {
-  const { key, model } = config();
-  const timeout = AbortSignal.timeout(TIMEOUT_MS);
+  const { key, model: defaultModel } = config();
+  const model = options.model || defaultModel;
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
   let response: Response;
@@ -112,6 +133,11 @@ export async function generateText(options: GenerateOptions): Promise<GenerateRe
         instructions: options.instructions,
         input: options.input,
         max_output_tokens: options.maxOutputTokens,
+        ...(options.webSearch && { tools: [{ type: "web_search" }] }),
+        ...(options.reasoningEffort && { reasoning: { effort: options.reasoningEffort } }),
+        ...(options.jsonSchema && {
+          text: { format: { type: "json_schema", name: options.jsonSchema.name, schema: options.jsonSchema.schema, strict: true } },
+        }),
         // 대외비가 섞일 수 있으므로 OpenAI 쪽에 대화 기록을 남기지 않게 한다
         store: false,
       }),
@@ -131,6 +157,7 @@ export async function generateText(options: GenerateOptions): Promise<GenerateRe
 
   return {
     text,
+    citations: extractCitations(body),
     model: body.model ?? model,
     usage: body.usage
       ? {

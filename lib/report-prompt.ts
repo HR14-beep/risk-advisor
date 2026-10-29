@@ -36,7 +36,7 @@ export const REPORT_INSTRUCTIONS = `너는 공공기관 리스크관리부의 �
 
 export type ReportRow = DashboardRow & { isSample: boolean };
 
-function describeRow(row: ReportRow, seriesById: SeriesById): string {
+export function describeRow(row: ReportRow, seriesById: SeriesById): string {
   const { indicator, period, result, status, previous, change, collectionFailure, deadline, noDataReason } = row;
   const parts = [`지표: ${indicator.name}`, `판정: ${DISPLAY_STATUS_LABELS[status]}`, `기준 기간: ${periodLabel(period)}`];
 

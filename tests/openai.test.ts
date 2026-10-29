@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AiConfigError, AiError, extractText, generateText } from "@/lib/openai";
+import { AiConfigError, AiError, extractCitations, extractText, generateText } from "@/lib/openai";
 
 // 실제 OpenAI를 부르지 않고 가짜 응답으로 채점한다
 function mockFetch(status: number, body: unknown) {
@@ -35,6 +35,7 @@ describe("OpenAI 연결", () => {
 
     expect(result).toEqual({
       text: "초안입니다.",
+      citations: [],
       model: "test-model",
       usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
     });
@@ -88,5 +89,47 @@ describe("OpenAI 연결", () => {
         output: [{ content: [{ type: "output_text", text: "가" }, { type: "refusal" }, { type: "output_text", text: "나" }] }],
       }),
     ).toBe("가나");
+  });
+});
+
+describe("원인 분석용 옵션 (PLAN 작업 22)", () => {
+  it("모델·웹 검색·생각 정도·JSON 모양을 요청에 넣는다", async () => {
+    const fetchMock = mockFetch(200, OK_BODY);
+    await generateText({
+      instructions: "규칙",
+      input: "내용",
+      model: "fast-model",
+      webSearch: true,
+      reasoningEffort: "low",
+      jsonSchema: { name: "x", schema: { type: "object" } },
+    });
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).toMatchObject({
+      model: "fast-model",
+      tools: [{ type: "web_search" }],
+      reasoning: { effort: "low" },
+      text: { format: { type: "json_schema", name: "x", strict: true } },
+      store: false,
+    });
+  });
+
+  it("웹 검색을 안 쓰면 도구를 보내지 않는다", async () => {
+    const fetchMock = mockFetch(200, OK_BODY);
+    await generateText({ instructions: "규칙", input: "내용" });
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.tools).toBeUndefined();
+    expect(body.model).toBe("test-model");
+  });
+
+  it("인용 출처는 중복을 빼고 http(s) 주소만 남긴다", () => {
+    const annotations = [
+      { type: "url_citation", title: "기사 A", url: "https://news.example/a" },
+      { type: "url_citation", title: "기사 A", url: "https://news.example/a" },
+      { type: "url_citation", title: "나쁜 링크", url: "javascript:alert(1)" },
+      { type: "file_citation", url: "https://x" },
+    ];
+    expect(
+      extractCitations({ output: [{ content: [{ type: "output_text", text: "t", annotations }] }] }),
+    ).toEqual([{ title: "기사 A", url: "https://news.example/a" }]);
   });
 });

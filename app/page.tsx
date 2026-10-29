@@ -16,6 +16,8 @@ import { NO_DATA_REASONS, formatChange, formatDay, formatValue } from "@/lib/for
 import { periodLabel, referencePeriod } from "@/lib/period";
 import { ROUTES } from "@/lib/site";
 import { STATUS_STYLES, StatusBadge } from "./status-badge";
+import { ExplainButton } from "./explain-button";
+import { EXPLAINABLE } from "@/lib/explain-prompt";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, NOTICE_INFO, NOTICE_WARN, TAG, TD, TH } from "@/lib/ui";
 
 // 지표 현황 화면 (DESIGN.md §3.1, PLAN 작업 6~7)
@@ -130,6 +132,7 @@ function IndicatorRow({ row, isSample }: { row: DashboardRow; isSample: boolean 
       <td className={TD}>
         <div className="flex flex-col items-start gap-1.5">
           <StatusBadge status={status} />
+          {EXPLAINABLE.includes(status) && <ExplainButton indicatorId={indicator.id} indicatorName={indicator.name} />}
           {noDataReason && <span className="text-xs text-muted">{NO_DATA_REASONS[noDataReason]}</span>}
           {status === "notYetPublished" && deadline && (
             <span className="text-xs text-muted">
