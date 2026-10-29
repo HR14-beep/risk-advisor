@@ -71,10 +71,15 @@ describe("수집 실패", () => {
     expect(row.previous?.period).toBe("2026-08");
   });
 
-  it("기준 기간 값이 이미 저장돼 있으면 판정은 그대로 하고 실패만 알린다", () => {
+  it("기준 기간 값이 저장돼 있어도 수집에 실패하면 판정하지 않고 저장된 값은 참고로만 보여 준다", () => {
     const row = buildRow(bsi, samples, today, true);
-    expect(row.status).toBe("normal");
-    expect(row.collectionFailure).toEqual({ lastDate: "2026-09-30" });
+    expect(row).toMatchObject({ status: "collectionFailed", result: null, collectionFailure: { lastDate: "2026-09-30" } });
+    expect(row.previous?.period).toBe("2026-09");
+  });
+
+  it("판정하지 못한 이유를 알려 준다 (5년 값이 모두 같음)", () => {
+    const flat = Array.from({ length: 62 }, (_, i) => ({ date: `20${21 + Math.floor((i + 7) / 12)}-${String(((i + 7) % 12) + 1).padStart(2, "0")}-28`, value: 90 }));
+    expect(buildRow(bsi, { [bsi.id]: flat }, today)).toMatchObject({ status: "noData", noDataReason: "noVariation" });
   });
 
   it("저장된 값이 하나도 없으면 직전 값 기준일은 없음", () => {

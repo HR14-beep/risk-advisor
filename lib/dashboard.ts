@@ -1,11 +1,11 @@
 // 지표 현황 화면에 보여 줄 행과 요약 개수를 만든다 (DESIGN.md §3.1, §4.1)
 import { CATEGORIES, CATEGORY_LABELS, type Category, type IndicatorDefinition } from "@/lib/indicators";
-import { hasValue, judgePeriod, type JudgeResult, type JudgeStatus, type SeriesById } from "@/lib/judge";
+import { hasValue, judgeOutcome, judgePeriod, type JudgeResult, type JudgeStatus, type SeriesById } from "@/lib/judge";
 import { periodChange, type PeriodChange } from "@/lib/change";
 import { publishDeadline, referencePeriod, shiftPeriod, type PeriodKey } from "@/lib/period";
 
 // notYetPublished: 기준 기간 값이 아직 발표(입력)되지 않음
-// collectionFailed: 이번 수집에 실패했고 저장된 값에도 기준 기간 값이 없음 (직전 값은 판정하지 않는다)
+// collectionFailed: 이번 수집에 실패함. 저장된 마지막 값은 참고로만 보여 주고 판정하지 않는다 (DESIGN.md §8)
 export type DisplayStatus = JudgeStatus | "notYetPublished" | "collectionFailed" | "noData";
 
 // 요약 카드 순서 (DESIGN.md §3.1 ②)
@@ -20,7 +20,8 @@ export const DISPLAY_STATUSES: DisplayStatus[] = [
 ];
 
 // missing: 발표 시점이 지났는데 값이 없음 / insufficientHistory: 임계점 계산에 필요한 과거 값이 모자람
-export type NoDataReason = "missing" | "insufficientHistory";
+// noVariation: 5년 값이 모두 같아 임계점을 정할 수 없음 / noReference: 기준값(목표값·담보가치)이 입력되지 않음
+export type NoDataReason = "missing" | "insufficientHistory" | "noVariation" | "noReference";
 
 export type DashboardRow = {
   indicator: IndicatorDefinition;
@@ -32,7 +33,7 @@ export type DashboardRow = {
   needsUpdate: boolean; // 직접 입력 지표가 입력 기한을 넘김
   previous: { period: PeriodKey; result: JudgeResult | null } | null; // 발표 전·수집 실패일 때 참고로 보여 줄 직전 값
   change: PeriodChange | null;
-  // 이번 수집에 실패했을 때: 저장소에 있는 마지막 값의 기준일 (기준 기간 값이 이미 저장돼 있으면 판정은 그대로 한다)
+  // 이번 수집에 실패했을 때: 저장소에 있는 마지막 값의 기준일
   collectionFailure: { lastDate: string | null } | null;
 };
 
@@ -54,12 +55,14 @@ export type Dashboard = {
 // 직전 발표 값을 찾을 때 거슬러 올라가는 최대 기간 수
 const LOOKBACK_PERIODS = 12;
 
+// key 이전(from = 0이면 key 포함)에 값이 있는 가장 최근 기간
 function latestPublishedBefore(
   indicator: IndicatorDefinition,
   seriesById: SeriesById,
   key: PeriodKey,
+  from = 1,
 ): PeriodKey | null {
-  for (let i = 1; i <= LOOKBACK_PERIODS; i++) {
+  for (let i = from; i <= LOOKBACK_PERIODS; i++) {
     const candidate = shiftPeriod(key, -i);
     if (hasValue(indicator, seriesById, candidate)) return candidate;
   }
@@ -86,14 +89,14 @@ export function buildRow(
     collectionFailure,
   };
 
-  const previousOf = () => {
-    const previousPeriod = latestPublishedBefore(indicator, seriesById, period);
+  const previousOf = (from = 1) => {
+    const previousPeriod = latestPublishedBefore(indicator, seriesById, period, from);
     return previousPeriod ? { period: previousPeriod, result: judgePeriod(indicator, seriesById, previousPeriod) } : null;
   };
 
-  // 수집에 실패했는데 기준 기간 값도 없으면, 발표 여부를 알 수 없으므로 직전 값은 참고로만 보여 준다
-  if (collectionFailed && !hasValue(indicator, seriesById, period)) {
-    return { ...base, status: "collectionFailed", previous: previousOf() };
+  // 수집에 실패하면 저장된 마지막 값(기준 기간 값 포함)은 참고로만 보여 주고, 최신 값처럼 판정하지 않는다
+  if (collectionFailed) {
+    return { ...base, status: "collectionFailed", previous: previousOf(0) };
   }
 
   if (!hasValue(indicator, seriesById, period)) {
@@ -106,9 +109,11 @@ export function buildRow(
     return { ...base, status: "notYetPublished", deadline, needsUpdate: overdue, previous: previousOf() };
   }
 
-  // 값을 추정해 채우지 않는다. 과거 값이 모자라면 판정하지 않는다 (PRD 5번)
-  const result = judgePeriod(indicator, seriesById, period);
-  if (!result) return { ...base, status: "noData", noDataReason: "insufficientHistory" };
+  // 값을 추정해 채우지 않는다. 임계점을 계산할 수 없으면 판정하지 않고 이유를 알린다 (PRD 5번)
+  const { result, failure } = judgeOutcome(indicator, seriesById, period);
+  if (!result) {
+    return { ...base, status: "noData", noDataReason: failure === "noValue" ? "missing" : failure };
+  }
 
   const before = shiftPeriod(period, -1);
   const beforeResult = hasValue(indicator, seriesById, before) ? judgePeriod(indicator, seriesById, before) : null;

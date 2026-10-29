@@ -10,6 +10,7 @@ import { collectStart, mergeSeries } from "@/lib/collect-plan";
 import { sampleSeries } from "@/lib/sample-values";
 import { StoreConfigError } from "@/lib/supabase";
 import { loadSeries, recordFailure, saveValues } from "@/lib/value-store";
+import { hasHolidayList } from "@/lib/holidays";
 
 export type DashboardData = {
   series: SeriesById;
@@ -89,6 +90,9 @@ async function collectNew(
 
 export async function loadDashboardData(today: string): Promise<DashboardData> {
   const notices: string[] = [];
+  if (!hasHolidayList(today)) {
+    notices.push(`${today.slice(0, 4)}년 휴일 목록이 없어 일별 지표의 발표 기한을 주말만 빼고 계산해요. lib/holidays.ts에 올해 휴일을 추가해 주세요.`);
+  }
   const stored = await loadStored(today, notices);
   const { collected, failed } = await collectNew(today, stored, notices);
 
@@ -100,10 +104,17 @@ export async function loadDashboardData(today: string): Promise<DashboardData> {
   for (const indicator of INDICATORS) {
     const ids = indicator.components?.map((c) => c.id) ?? [indicator.id];
     const real = Object.fromEntries(ids.map((id) => [id, mergeSeries(stored[id] ?? [], collected[id] ?? [])]));
+    // 구성값마다 실제 값이 있거나, 수집기는 있는데 이번에 실패한 경우만 "실제 지표"로 본다.
+    // 수집기가 없는 구성값(예: VKOSPI)이 하나라도 있으면 지표 전체를 가상 값으로 보여 준다
+    const realOrFailed = ids.every((id) => real[id].length > 0 || failed.has(id));
+    if (realOrFailed && ids.some((id) => failed.has(id))) {
+      // 수집에 실패하면 저장된 값이 없어도 가상 값으로 채우지 않고 "수집 실패"로 보여 준다 (DESIGN.md §8)
+      failedIds.add(indicator.id);
+      for (const id of ids) series[id] = real[id];
+      continue;
+    }
     const allReal = ids.every((id) => real[id].length > 0);
     if (!allReal) sampleIds.add(indicator.id);
-    // 저장된 직전 값으로 보여 주는 경우만 "수집 실패"로 표시한다 (가상 값은 위 안내로 알린다)
-    else if (ids.some((id) => failed.has(id))) failedIds.add(indicator.id);
     for (const id of ids) series[id] = allReal ? real[id] : (samples[id] ?? []);
   }
 

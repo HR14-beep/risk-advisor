@@ -15,6 +15,8 @@ export const DISPLAY_STATUS_LABELS: Record<DisplayStatus, string> = {
 export const NO_DATA_REASONS: Record<NoDataReason, string> = {
   missing: "발표 시점이 지났는데 값이 없음",
   insufficientHistory: "임계점 계산에 필요한 5년치 값이 모자람",
+  noVariation: "5년 값이 모두 같아 임계점을 정할 수 없음",
+  noReference: "기준값(목표값·담보가치)이 입력되지 않음",
 };
 
 const numberFormat = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });

@@ -5,8 +5,9 @@ import "server-only";
 
 const API_URL = "https://api.openai.com/v1/responses";
 // 보고서 한 분류(A4 1쪽 남짓)를 쓰는 데 충분한 시간. 생각하는 모델(예: pro)은 2분 넘게 걸릴 수 있다.
-// 서버 API 최대 실행 시간(maxDuration 300초)보다 조금 짧게 둔다
-const TIMEOUT_MS = 270_000;
+// 서버 API 최대 실행 시간(maxDuration 300초) 안에 수집(최대 약 30초)과 저장까지 끝나도록 4분으로 둔다.
+// 분류 3개는 동시에 요청하므로 보고서 전체도 이 시간 안에 끝난다
+export const TIMEOUT_MS = 240_000;
 
 export class AiConfigError extends Error {
   constructor(missing: string[]) {

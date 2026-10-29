@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { INDICATORS, type IndicatorDefinition, type ValuePoint } from "@/lib/indicators";
 import {
   judgeLevel,
+  judgeOutcome,
   judgePeriod,
   referenceThresholds,
   sigmaThresholds,
@@ -73,10 +74,24 @@ describe("지표 판정", () => {
     expect(judgePeriod(delinquency, calm, "2026-08")!.status).toBe("normal");
   });
 
-  it("5년치 과거 값이 모자라면 판정하지 않는다", () => {
+  it("5년 중 빠진 달이 10% 이하면 있는 값으로 판정하고, 넘으면 판정하지 않는다", () => {
     const bsi = byId("ew_bsi");
-    const series = { [bsi.id]: monthlySeries("2026-08", history, 3).slice(1) };
-    expect(judgePeriod(bsi, series, "2026-08")).toBeNull();
+    const full = monthlySeries("2026-08", history, 3);
+    // 60개월 중 6개월 빠짐 → 54개월(90%)로 판정
+    expect(judgePeriod(bsi, { [bsi.id]: full.slice(6) }, "2026-08")).not.toBeNull();
+    // 7개월 빠짐 → 판정하지 않음
+    expect(judgeOutcome(bsi, { [bsi.id]: full.slice(7) }, "2026-08")).toEqual({ result: null, failure: "insufficientHistory" });
+  });
+
+  it("5년 값이 모두 같으면 임계점을 정할 수 없어 판정하지 않는다", () => {
+    const bsi = byId("ew_bsi");
+    const flat = monthlySeries("2026-08", [90], 90);
+    expect(judgeOutcome(bsi, { [bsi.id]: flat }, "2026-08")).toEqual({ result: null, failure: "noVariation" });
+  });
+
+  it("기준값이 필요한 지표에 기준값이 없으면 그 이유를 알린다", () => {
+    const slb = byId("cr_recoverable_slb");
+    expect(judgeOutcome(slb, { [slb.id]: [{ date: "2026-08-31", value: 500 }] }, "2026-08").failure).toBe("noReference");
   });
 
   it("위기대응지표: 담보가치 금액과 비교한다", () => {
@@ -135,6 +150,19 @@ describe("가중합 지표", () => {
   it("구성값 하나라도 없으면 판정하지 않는다", () => {
     const series = { a: monthlySeries("2026-08", history, 3) };
     expect(judgePeriod(composite, series, "2026-08")).toBeNull();
+  });
+
+  it("지표 방향과 반대인 구성값(sign -1)은 오를수록 점수를 낮춘다", () => {
+    const reversed: IndicatorDefinition = {
+      ...composite,
+      components: [
+        { id: "a", name: "A", weight: 0.5, source: { name: "테스트" }, sign: -1 },
+        { id: "b", name: "B", weight: 0.5, source: { name: "테스트" } },
+      ],
+    };
+    // b는 a와 다르게 움직여야 과거 점수에 변동이 생긴다 (같은 값·같은 평균 3·같은 표준편차)
+    const series = { a: monthlySeries("2026-08", history, 3 + 2.5 * SD), b: monthlySeries("2026-08", [2, 4, 1, 5, 3], 3) };
+    expect(judgePeriod(reversed, series, "2026-08")!.value).toBeCloseTo(-1.25, 4);
   });
 
   it("일별 구성값은 기준월 평균으로 쓴다", () => {

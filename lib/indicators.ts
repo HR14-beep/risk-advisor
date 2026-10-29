@@ -53,6 +53,8 @@ export type Component = {
   weight: number;
   source: SourceLink;
   unit?: string; // 보고서 시사점에 값을 적을 때 쓰는 단위
+  // 지표 방향과 반대로 움직이는 구성값은 -1 (예: KOSPI는 떨어질수록 위험한데 금융경제지표는 높을수록 위험)
+  sign?: 1 | -1;
   description?: string;
 };
 
@@ -168,7 +170,7 @@ export const INDICATORS: IndicatorDefinition[] = [
     unit: "점",
     source: KCIF,
     components: [
-      { id: "macro_financial.kospi", name: "KOSPI", weight: 0.2, source: KCIF, unit: "pt" },
+      { id: "macro_financial.kospi", name: "KOSPI", weight: 0.2, source: KCIF, unit: "pt", sign: -1 },
       { id: "macro_financial.vkospi", name: "VKOSPI", weight: 0.2, source: KCIF },
       {
         id: "macro_financial.credit_spread",

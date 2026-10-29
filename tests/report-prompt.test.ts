@@ -34,7 +34,7 @@ describe("AI에게 넘길 내용", () => {
   });
 
   it("가중합 지표는 구성과 가중치를 함께 넘긴다", () => {
-    expect(inputOf(0)).toContain("구성: KOSPI 20% + VKOSPI 20% + 신용스프레드 25% + 한국 CDS 프리미엄 25% + 원/달러 환율 10%");
+    expect(inputOf(0)).toContain("구성: KOSPI 20%(하락 시 위험) + VKOSPI 20% + 신용스프레드 25% + 한국 CDS 프리미엄 25% + 원/달러 환율 10%");
   });
 
   it("규칙에 PRD must 2의 핵심 항목이 들어 있다", () => {

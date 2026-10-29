@@ -131,13 +131,18 @@ function SourceLinks({ indicator }: { indicator: IndicatorDefinition }) {
   );
 }
 
+// 예: "KOSPI 20%(하락 시 위험)" — 지표 방향과 반대로 움직이는 구성값을 표시한다
+function componentLabel(c: NonNullable<IndicatorDefinition["components"]>[number]): string {
+  return `${c.name} ${Math.round(c.weight * 100)}%${c.sign === -1 ? "(하락 시 위험)" : ""}`;
+}
+
 function IndicatorName({ indicator }: { indicator: IndicatorDefinition }) {
   return (
     <>
       <div className="font-medium">{indicator.name}</div>
       {indicator.components && (
         <div className="mt-0.5 text-xs leading-relaxed text-muted">
-          {indicator.components.map((c) => `${c.name} ${Math.round(c.weight * 100)}%`).join(" · ")}
+          {indicator.components.map(componentLabel).join(" · ")}
         </div>
       )}
     </>
@@ -193,15 +198,9 @@ function IndicatorRow({ row, isSample }: { row: DashboardRow; isSample: boolean 
           {status === "notYetPublished" && previous?.result && (
             <span className="text-xs text-muted">직전 판정: {STATUS_STYLES[previous.result.status].label}</span>
           )}
-          {collectionFailure &&
-            (status === "collectionFailed" ? (
-              <span className="text-xs text-muted">수집 실패, 직전 값 기준일 {collectionFailure.lastDate ?? "없음"}</span>
-            ) : (
-              // 기준 기간 값은 이미 저장돼 있어 판정은 그대로 하고, 이번 수집 실패만 알린다
-              <span className={`${TAG} bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300`}>
-                이번 수집 실패 · 저장된 값 기준일 {collectionFailure.lastDate}
-              </span>
-            ))}
+          {collectionFailure && (
+            <span className="text-xs text-muted">수집 실패, 직전 값 기준일 {collectionFailure.lastDate ?? "없음"}</span>
+          )}
           {needsUpdate && (
             <span className={`${TAG} bg-amber-50 text-amber-800 ring-amber-600/25 dark:bg-amber-500/10 dark:text-amber-300`}>
               갱신 필요

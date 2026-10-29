@@ -85,3 +85,12 @@ describe("한국 시간", () => {
     expect(todayInKorea(new Date("2026-10-28T14:30:00Z"))).toBe("2026-10-28");
   });
 });
+
+describe("휴일 목록", () => {
+  it("2027년 휴일도 건너뛴다 (설날 대체공휴일 2월 8일)", async () => {
+    const { hasHolidayList } = await import("@/lib/holidays");
+    expect(addBusinessDays("2027-02-04", 1, "KR")).toBe("2027-02-09");
+    expect(hasHolidayList("2027-06-01")).toBe(true);
+    expect(hasHolidayList("2028-01-03")).toBe(false);
+  });
+});

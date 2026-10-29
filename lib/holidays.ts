@@ -22,6 +22,20 @@ export const HOLIDAYS: Record<string, readonly string[]> = {
     "2026-10-09", // 한글날
     "2026-12-25", // 성탄절
     "2026-12-31", // 연말 휴장 (한국거래소)
+    "2027-01-01", // 신정
+    "2027-02-05", // 설날 연휴
+    "2027-02-08", // 설날 대체공휴일 (2월 7일 일요일과 겹침)
+    "2027-03-01", // 삼일절
+    "2027-05-05", // 어린이날
+    "2027-05-13", // 부처님오신날
+    "2027-08-16", // 광복절 대체공휴일
+    "2027-09-14", // 추석 연휴
+    "2027-09-15", // 추석
+    "2027-09-16", // 추석 연휴
+    "2027-10-04", // 개천절 대체공휴일
+    "2027-10-11", // 한글날 대체공휴일
+    "2027-12-27", // 성탄절 대체공휴일
+    "2027-12-31", // 연말 휴장 (한국거래소)
   ],
   // 미국: 뉴욕증권거래소 휴장일
   US: [
@@ -35,8 +49,25 @@ export const HOLIDAYS: Record<string, readonly string[]> = {
     "2026-09-07", // Labor Day
     "2026-11-26", // Thanksgiving Day
     "2026-12-25", // Christmas Day
+    "2027-01-01", // New Year's Day
+    "2027-01-18", // Martin Luther King Jr. Day
+    "2027-02-15", // Presidents' Day
+    "2027-03-26", // Good Friday
+    "2027-05-31", // Memorial Day
+    "2027-06-18", // Juneteenth (대체)
+    "2027-07-05", // Independence Day (대체)
+    "2027-09-06", // Labor Day
+    "2027-11-25", // Thanksgiving Day
+    "2027-12-24", // Christmas Day (대체)
   ],
 };
+
+// 목록을 적어 둔 해. 이 밖의 해는 휴일을 알 수 없으므로 화면·로그로 알린다
+export const HOLIDAY_YEARS = [2026, 2027];
+
+export function hasHolidayList(date: string): boolean {
+  return HOLIDAY_YEARS.includes(Number(date.slice(0, 4)));
+}
 
 export function isHoliday(date: string, calendar: string): boolean {
   return HOLIDAYS[calendar]?.includes(date) ?? false;

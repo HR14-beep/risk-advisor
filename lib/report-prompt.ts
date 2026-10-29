@@ -41,7 +41,7 @@ function describeRow(row: ReportRow, seriesById: SeriesById): string {
   const parts = [`지표: ${indicator.name}`, `판정: ${DISPLAY_STATUS_LABELS[status]}`, `기준 기간: ${periodLabel(period)}`];
 
   if (indicator.components) {
-    parts.push(`구성: ${indicator.components.map((c) => `${c.name} ${Math.round(c.weight * 100)}%`).join(" + ")}`);
+    parts.push(`구성: ${indicator.components.map((c) => `${c.name} ${Math.round(c.weight * 100)}%${c.sign === -1 ? "(하락 시 위험)" : ""}`).join(" + ")}`);
   }
   if (result) {
     parts.push(`값: ${formatValue(result.value, indicator.unit)}`);
