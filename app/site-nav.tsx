@@ -9,6 +9,7 @@ const ITEMS = [
   { href: ROUTES.dashboard, label: "지표 현황" },
   { href: ROUTES.input, label: "직접 입력" },
   { href: ROUTES.report, label: "보고서" },
+  { href: ROUTES.compare, label: "지표 비교" },
 ];
 
 export function SiteNav() {

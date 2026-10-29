@@ -12,59 +12,14 @@ import {
   type DisplayStatus,
 } from "@/lib/dashboard";
 import type { JudgeResult } from "@/lib/judge";
-import { DISPLAY_STATUS_LABELS, NO_DATA_REASONS, formatChange, formatDay, formatValue } from "@/lib/format";
+import { NO_DATA_REASONS, formatChange, formatDay, formatValue } from "@/lib/format";
 import { periodLabel, referencePeriod } from "@/lib/period";
 import { ROUTES } from "@/lib/site";
+import { STATUS_STYLES, StatusBadge } from "./status-badge";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, NOTICE_INFO, NOTICE_WARN, TAG, TD, TH } from "@/lib/ui";
 
 // 지표 현황 화면 (DESIGN.md §3.1, PLAN 작업 6~7)
 // 자동 수집·저장소 값을 쓰고, 값이 없는 지표는 lib/sample-values.ts의 가상 값으로 보여 준다 (lib/dashboard-data.ts)
-
-// pill: 단계 표시 / dot: 색 점 / bar: 임계점을 넘은 줄의 왼쪽 띠
-const STATUS_STYLES: Record<DisplayStatus, { label: string; pill: string; dot: string; bar: string }> = {
-  crisis: {
-    label: DISPLAY_STATUS_LABELS.crisis,
-    pill: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30",
-    dot: "bg-red-500",
-    bar: "shadow-[inset_3px_0_0_var(--color-red-500)]",
-  },
-  warning: {
-    label: DISPLAY_STATUS_LABELS.warning,
-    pill: "bg-orange-50 text-orange-700 ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/30",
-    dot: "bg-orange-500",
-    bar: "shadow-[inset_3px_0_0_var(--color-orange-500)]",
-  },
-  caution: {
-    label: DISPLAY_STATUS_LABELS.caution,
-    pill: "bg-amber-50 text-amber-800 ring-amber-600/25 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
-    dot: "bg-amber-400",
-    bar: "shadow-[inset_3px_0_0_var(--color-amber-400)]",
-  },
-  normal: {
-    label: DISPLAY_STATUS_LABELS.normal,
-    pill: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30",
-    dot: "bg-emerald-500",
-    bar: "",
-  },
-  notYetPublished: {
-    label: DISPLAY_STATUS_LABELS.notYetPublished,
-    pill: "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/30",
-    dot: "bg-sky-500",
-    bar: "",
-  },
-  collectionFailed: {
-    label: DISPLAY_STATUS_LABELS.collectionFailed,
-    pill: "bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/30",
-    dot: "bg-violet-500",
-    bar: "",
-  },
-  noData: {
-    label: DISPLAY_STATUS_LABELS.noData,
-    pill: "bg-slate-100 text-slate-600 ring-slate-500/20 dark:bg-slate-500/10 dark:text-slate-300 dark:ring-slate-400/30",
-    dot: "bg-slate-400",
-    bar: "",
-  },
-};
 
 const EXCEEDED: DisplayStatus[] = ["crisis", "warning", "caution"];
 
@@ -77,18 +32,6 @@ function formatKoreaTime(now: Date): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(now);
-}
-
-function StatusBadge({ status }: { status: DisplayStatus }) {
-  const style = STATUS_STYLES[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${style.pill}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden />
-      {style.label}
-    </span>
-  );
 }
 
 // 판정에 쓴 임계점 (예: "경계 ≥ 0.52%")

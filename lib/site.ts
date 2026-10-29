@@ -7,6 +7,7 @@ export const ROUTES = {
   dashboard: "/",
   input: "/input",
   report: "/report",
+  compare: "/compare",
 } as const;
 
 // 메일 알림의 "지표 현황 보기" 링크에 쓰는 배포 주소
