@@ -1,25 +1,55 @@
 @import "tailwindcss";
 
+/* 화면 색 (밝은 화면 / 어두운 화면). 카드·선·흐린 글자·강조색을 한곳에서 정한다 */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f7fa;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --line: #e2e8f0;
+  --muted: #64748b;
+  --accent: #1d4ed8;
+  --accent-soft: #eff6ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1120;
+    --foreground: #e2e8f0;
+    --surface: #111827;
+    --surface-muted: #1a2234;
+    --line: #243042;
+    --muted: #94a3b8;
+    --accent: #60a5fa;
+    --accent-soft: #14213d;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-noto-sans-kr);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-noto-sans-kr), sans-serif;
+}
+
+/* 숫자 칸의 자릿수가 세로로 가지런하게 보이도록 */
+td,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 접고 펴는 표의 기본 삼각형 표시를 숨기고 직접 그린 화살표를 쓴다 */
+summary::-webkit-details-marker {
+  display: none;
 }

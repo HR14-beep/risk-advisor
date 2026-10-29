@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { todayInKorea } from "@/lib/dates";
 import { getManualInputData, type ManualInputData } from "@/lib/manual-input";
 import { periodLabel } from "@/lib/period";
 import { StoreConfigError } from "@/lib/supabase";
-import { ROUTES } from "@/lib/site";
+import { CARD, NOTICE_ERROR, NOTICE_INFO } from "@/lib/ui";
 import { ManualInputForm } from "./manual-input-form";
 
 export const metadata: Metadata = { title: "직접 입력" };
@@ -26,7 +25,7 @@ async function InputContent() {
     const message =
       error instanceof StoreConfigError ? error.message : "저장소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.";
     return (
-      <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100">
+      <p className={NOTICE_ERROR}>
         {message}
       </p>
     );
@@ -34,7 +33,7 @@ async function InputContent() {
 
   return (
     <>
-      <p className="text-sm text-black/70 dark:text-white/70">
+      <p className="text-sm text-muted">
         {periodLabel(data.period)}분 값을 입력합니다. 이미 저장한 달을 다시 저장하면 새 값으로 바뀝니다.
       </p>
       <ManualInputForm data={data} />
@@ -44,15 +43,13 @@ async function InputContent() {
 
 export default function InputPage() {
   return (
-    <section className="flex flex-col gap-4">
-      <Link href={ROUTES.dashboard} className="text-sm underline">
-        ← 지표 현황으로
-      </Link>
-      <h1 className="text-2xl font-bold">직접 입력</h1>
-      <p className="rounded border border-dashed border-black/20 px-3 py-2 text-sm text-black/70 dark:border-white/25 dark:text-white/70">
-        실습 단계에서는 실제 사내 수치 대신 가상 값만 입력해 주세요.
-      </p>
-      <Suspense fallback={<p className="text-sm">입력 현황을 불러오는 중…</p>}>
+    <section className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">직접 입력</h1>
+        <p className="mt-1 text-sm text-muted">공개 API가 없는 위기대응지표의 값과 기준값을 매월 입력합니다.</p>
+      </div>
+      <p className={NOTICE_INFO}>실습 단계에서는 실제 사내 수치 대신 가상 값만 입력해 주세요.</p>
+      <Suspense fallback={<div className={`${CARD} h-96 animate-pulse bg-surface-muted`} aria-label="입력 현황을 불러오는 중" />}>
         <InputContent />
       </Suspense>
     </section>

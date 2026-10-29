@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { getReport, latestReport, listReports, type ReportRecord, type ReportWithSections } from "@/lib/report-store";
 import { StoreConfigError } from "@/lib/supabase";
-import { ROUTES } from "@/lib/site";
+import { CARD, NOTICE_ERROR } from "@/lib/ui";
 import { CreateReportButton, ReportEditor } from "./report-editor";
 
 export const metadata: Metadata = { title: "보고서" };
@@ -31,7 +30,7 @@ async function ReportContent({ searchParams }: { searchParams: PageProps<"/repor
     const message =
       error instanceof StoreConfigError ? error.message : "저장소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.";
     return (
-      <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100">
+      <p className={NOTICE_ERROR}>
         {message}
       </p>
     );
@@ -39,9 +38,9 @@ async function ReportContent({ searchParams }: { searchParams: PageProps<"/repor
 
   if (!loaded.report) {
     return (
-      <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-black/20 p-6 dark:border-white/25">
-        <p>{loaded.missing ? "찾는 보고서가 없어요." : "아직 만든 보고서가 없어요."}</p>
-        <p className="text-sm text-black/60 dark:text-white/60">
+      <div className={`${CARD} flex flex-col items-start gap-3 p-8`}>
+        <p className="text-lg font-semibold">{loaded.missing ? "찾는 보고서가 없어요." : "아직 만든 보고서가 없어요."}</p>
+        <p className="text-sm text-muted">
           지금의 지표 판정 결과로 AI가 분류별 초안을 씁니다. 몇십 초 걸릴 수 있어요.
         </p>
         <CreateReportButton />
@@ -55,11 +54,8 @@ async function ReportContent({ searchParams }: { searchParams: PageProps<"/repor
 
 export default function ReportPage({ searchParams }: PageProps<"/report">) {
   return (
-    <section className="flex flex-col gap-4">
-      <Link href={ROUTES.dashboard} className="text-sm underline">
-        ← 지표 현황으로
-      </Link>
-      <Suspense fallback={<p className="text-sm">보고서를 불러오는 중…</p>}>
+    <section className="flex flex-col gap-6">
+      <Suspense fallback={<div className={`${CARD} h-96 animate-pulse bg-surface-muted`} aria-label="보고서를 불러오는 중" />}>
         <ReportContent searchParams={searchParams} />
       </Suspense>
     </section>

@@ -10,8 +10,9 @@ import { AI_DRAFT_NOTICE } from "@/lib/report-prompt";
 import { OVERALL_LEVELS, OVERALL_LEVEL_LABELS, isEdited, type OverallLevel } from "@/lib/report-schema";
 import type { ReportRecord, ReportWithSections } from "@/lib/report-store";
 import { ROUTES } from "@/lib/site";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, NOTICE_WARN, TAG } from "@/lib/ui";
 
-const muted = "text-black/60 dark:text-white/60";
+const muted = "text-muted";
 
 // 초안을 만든 직후의 점검 결과는 저장소에 없으므로, 같은 탭 안에서만 잠깐 넘겨 보여 준다
 const warningsKey = (id: number) => `report-warnings-${id}`;
@@ -75,11 +76,11 @@ export function CreateReportButton({ variant = "primary" }: { variant?: "primary
 
   const style =
     variant === "primary"
-      ? "bg-foreground text-background hover:opacity-90"
-      : "border border-black/15 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10";
+      ? BUTTON_PRIMARY
+      : BUTTON_SECONDARY;
   return (
     <div className="flex flex-col items-start gap-1">
-      <button type="button" onClick={create} disabled={creating} className={`rounded px-4 py-2 disabled:opacity-50 ${style}`}>
+      <button type="button" onClick={create} disabled={creating} className={style}>
         {creating ? "초안 만드는 중… (몇십 초 걸릴 수 있어요)" : "새 초안 만들기"}
       </button>
       {error && <p className="text-sm text-red-600">⚠ {error}</p>}
@@ -217,13 +218,13 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
     <div className="flex flex-col gap-5">
       {/* 제목과 같은 달 목록 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{reportTitle(report)}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{reportTitle(report)}</h1>
         <label className="flex items-center gap-2 text-sm">
           같은 달 목록
           <select
             value={report.id}
             onChange={(e) => open(e.target.value)}
-            className="rounded border border-black/20 bg-transparent px-2 py-1 dark:border-white/25"
+            className="rounded-lg border border-line bg-surface px-2.5 py-1.5 shadow-sm"
           >
             {siblings.map((s) => (
               <option key={s.id} value={s.id}>
@@ -234,12 +235,12 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
         </label>
       </div>
 
-      <p className="rounded border border-amber-400 bg-amber-50 px-3 py-2 font-bold text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+      <p className={`${NOTICE_WARN} font-semibold`}>
         ⚠ {AI_DRAFT_NOTICE}
       </p>
 
       {/* 전체 리스크 수준: AI가 아니라 담당자가 고른다 */}
-      <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-black/10 px-4 py-3 dark:border-white/15">
+      <fieldset className={`${CARD} flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-4`}>
         <legend className="px-1 text-sm font-bold">전체 리스크 수준 (담당자 선택)</legend>
         {OVERALL_LEVELS.map((value) => (
           <label key={value} className="flex items-center gap-1.5">
@@ -265,17 +266,17 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
         const sectionWarnings = warnings[section.category] ?? [];
         const thisRegenerating = regenerating === section.category || regenerating === "all";
         return (
-          <section key={section.id} className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/15">
+          <section key={section.id} className={`${CARD} flex flex-col gap-3 p-5`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-bold">
                   {index + 1}. {CATEGORY_LABELS[section.category]}
                 </h2>
                 {edited && (
-                  <span className="rounded border border-blue-500 px-1.5 text-xs text-blue-700 dark:text-blue-300">고침</span>
+                  <span className={`${TAG} bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-300`}>고침</span>
                 )}
                 {section.ai_draft === null && (
-                  <span className="rounded bg-red-600 px-1.5 text-xs text-white">생성 실패</span>
+                  <span className={`${TAG} bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300`}>생성 실패</span>
                 )}
               </div>
               <button
@@ -283,7 +284,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
                 onClick={() => regenerate(section.category)}
                 disabled={busy || edited}
                 title={edited ? "고친 섹션은 다시 만들지 않아요. 고친 내용을 AI 초안으로 되돌리면 다시 만들 수 있어요." : undefined}
-                className="rounded border border-black/15 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10"
+                className={`${BUTTON_SECONDARY} px-3 py-1.5`}
               >
                 {thisRegenerating ? "다시 만드는 중…" : "이 부분 다시 만들기"}
               </button>
@@ -294,7 +295,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
               </p>
             )}
             {sectionWarnings.length > 0 && (
-              <ul className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+              <ul className={NOTICE_WARN}>
                 {sectionWarnings.map((w) => (
                   <li key={w}>⚠ 확인 필요: {w}</li>
                 ))}
@@ -309,7 +310,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
                 setTexts({ ...texts, [section.category]: e.target.value });
                 setNotice(null);
               }}
-              className="w-full rounded border border-black/20 bg-transparent px-3 py-2 leading-relaxed read-only:opacity-60 dark:border-white/25"
+              className="w-full rounded-lg border border-line bg-surface px-4 py-3 leading-relaxed shadow-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 read-only:opacity-60"
             />
           </section>
         );
@@ -331,7 +332,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
             onClick={() => regenerate()}
             disabled={busy}
             title="고친 섹션([고침])은 건너뛰고 나머지만 새로 만들어요"
-            className="rounded border border-black/15 px-4 py-2 hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10"
+            className={BUTTON_SECONDARY}
           >
             {regenerating === "all" ? "다시 만드는 중… (몇십 초 걸릴 수 있어요)" : "전체 다시 만들기"}
           </button>
@@ -339,7 +340,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
             type="button"
             onClick={save}
             disabled={busy || !dirty}
-            className="rounded bg-foreground px-5 py-2 text-background hover:opacity-90 disabled:opacity-50"
+            className={BUTTON_PRIMARY}
           >
             {saving ? "저장 중…" : "저장"}
           </button>

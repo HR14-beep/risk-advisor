@@ -7,6 +7,7 @@ import type { ManualInputData, ManualIndicatorStatus } from "@/lib/manual-input"
 import { parseHistoryText, parseManualValues, toNumber, type FieldError, type ManualEntry } from "@/lib/schemas";
 import { periodLabel } from "@/lib/period";
 import { todayInKorea } from "@/lib/dates";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, INPUT, TAG, TD, TH } from "@/lib/ui";
 
 type Draft = { value: string; reference: string };
 type Errors = Record<string, Partial<Record<FieldError["field"], string>>>;
@@ -19,9 +20,8 @@ function without(errors: Errors, id: string): Errors {
 }
 
 const numberFormat = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 2 });
-const inputClass =
-  "w-28 rounded border border-black/20 bg-transparent px-2 py-1 text-right dark:border-white/25 aria-[invalid=true]:border-red-500";
-const muted = "text-black/60 dark:text-white/60";
+const inputClass = `${INPUT} w-28`;
+const muted = "text-muted";
 
 function withUnit(value: number, unit: string): string {
   if (unit === "%") return `${numberFormat.format(value)}%`;
@@ -153,14 +153,14 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/15">
+      <div className={`${CARD} overflow-x-auto`}>
         <table className="w-full min-w-[760px] text-sm">
-          <thead className="whitespace-nowrap bg-black/5 text-left dark:bg-white/10">
+          <thead className="whitespace-nowrap bg-surface-muted text-left">
             <tr>
-              <th className="px-3 py-2">지표명</th>
-              <th className="px-3 py-2">마지막 입력</th>
-              <th className="px-3 py-2">기준값</th>
-              <th className="px-3 py-2">지표값</th>
+              <th className={TH}>지표명</th>
+              <th className={TH}>마지막 입력</th>
+              <th className={TH}>기준값</th>
+              <th className={TH}>지표값</th>
             </tr>
           </thead>
           <tbody>
@@ -168,12 +168,12 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
               const draft = drafts[indicator.id];
               const error = errors[indicator.id] ?? {};
               return (
-                <tr key={indicator.id} className="border-t border-black/10 align-top dark:border-white/15">
-                  <td className="px-3 py-2">
+                <tr key={indicator.id} className="border-t border-line align-top transition-colors hover:bg-surface-muted/60">
+                  <td className={TD}>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {indicator.name}
                       {indicator.needsUpdate && (
-                        <span className="rounded border border-amber-500 px-1.5 text-xs text-amber-700 dark:text-amber-300">
+                        <span className={`${TAG} bg-amber-50 text-amber-800 ring-amber-600/25 dark:bg-amber-500/10 dark:text-amber-300`}>
                           갱신 필요
                         </span>
                       )}
@@ -184,7 +184,7 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
                       </div>
                     )}
                   </td>
-                  <td className={`whitespace-nowrap px-3 py-2 ${muted}`}>
+                  <td className={`${TD} whitespace-nowrap ${muted}`}>
                     {indicator.latest ? (
                       <>
                         <div>{periodLabel(indicator.latest.period)}</div>
@@ -198,7 +198,7 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
                       "아직 없음"
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={TD}>
                     {indicator.referenceName ? (
                       <label className="flex flex-col gap-1">
                         <span className={`text-xs ${muted}`}>{indicator.referenceName}</span>
@@ -218,7 +218,7 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
                       <span className={`text-xs ${muted}`}>5년 표준편차 방식 (기준값 없음)</span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={TD}>
                     <label className="flex flex-col gap-1">
                       <span className="sr-only">{indicator.name} 지표값</span>
                       <span className="flex items-center gap-1">
@@ -253,7 +253,7 @@ export function ManualInputForm({ data }: { data: ManualInputData }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded bg-foreground px-5 py-2 text-background hover:opacity-90 disabled:opacity-50"
+          className={BUTTON_PRIMARY}
         >
           {saving ? "저장 중…" : "저장"}
         </button>
@@ -306,7 +306,7 @@ function HistoryUpload({ indicator }: { indicator: ManualIndicatorStatus }) {
   }
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/15">
+    <section className={`${CARD} flex flex-col gap-3 p-5`}>
       <h2 className="font-bold">{indicator.name} 과거 값 넣기</h2>
       <p className={`text-sm ${muted}`}>
         이 지표는 앞 5년(60개월) 값의 평균·표준편차로 임계점을 계산합니다. 엑셀에서 &quot;기간, 값&quot; 두 칸을 복사해
@@ -317,7 +317,7 @@ function HistoryUpload({ indicator }: { indicator: ManualIndicatorStatus }) {
         rows={6}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="rounded border border-black/20 bg-transparent px-2 py-1 font-mono text-sm dark:border-white/25"
+        className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm shadow-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         placeholder={"2021-09\t41.2\n2021-10\t40.8"}
       />
       {messages.length > 0 && (
@@ -334,7 +334,7 @@ function HistoryUpload({ indicator }: { indicator: ManualIndicatorStatus }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded border border-black/15 px-4 py-2 hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10"
+          className={BUTTON_SECONDARY}
         >
           {saving ? "저장 중…" : "과거 값 저장"}
         </button>
