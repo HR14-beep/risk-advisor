@@ -44,3 +44,14 @@ create table if not exists report_sections (
 alter table indicator_values enable row level security;
 alter table reports enable row level security;
 alter table report_sections enable row level security;
+
+-- 지표 업데이트 메일 알림 기록 (PLAN 작업 20). 다음 알림 때 "새로 발표된 값"을 가려내는 데 쓴다
+create table if not exists notification_runs (
+  id bigint generated always as identity primary key,
+  ran_at timestamptz not null default now(),
+  snapshot jsonb not null,                    -- 지표별 { period, status }: 값이 있는 가장 최근 기간과 그 단계
+  item_count integer not null default 0,      -- 메일에 담은 지표 수
+  sent_to text,                               -- 받는 메일 (보내지 않았으면 비어 있음)
+  sent boolean not null default false
+);
+alter table notification_runs enable row level security;

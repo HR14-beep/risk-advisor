@@ -10,7 +10,7 @@ import { AI_DRAFT_NOTICE } from "@/lib/report-prompt";
 import { OVERALL_LEVELS, OVERALL_LEVEL_LABELS, isEdited, type OverallLevel } from "@/lib/report-schema";
 import type { ReportRecord, ReportWithSections } from "@/lib/report-store";
 import { ROUTES } from "@/lib/site";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, NOTICE_WARN, TAG } from "@/lib/ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, NOTICE_INFO, NOTICE_WARN, TAG } from "@/lib/ui";
 
 const muted = "text-muted";
 
@@ -40,13 +40,75 @@ function reportTitle(report: ReportRecord): string {
   return `${periodLabel(report.report_month)} 리스크 보고서 (${report.round}차)`;
 }
 
+// ── AI가 초안을 쓰는 동안의 안내 (보통 2~4분 걸린다)
+
+// 시작한 뒤 지난 초. 시작하지 않았으면 0
+function useElapsedSeconds(startedAt: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (startedAt === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+  return startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
+}
+
+// 작업 중에 창을 닫거나 새로고침하려 하면 한 번 묻는다
+function useLeaveWarning(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active]);
+}
+
+// 버튼을 누른 시각 (클릭할 때만 부른다)
+function startTime(): number {
+  return Date.now();
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
+}
+
+function WaitingNotice({ title, startedAt }: { title: string; startedAt: number }) {
+  const seconds = useElapsedSeconds(startedAt);
+  return (
+    <div role="status" aria-live="polite" className={`${NOTICE_INFO} flex items-start gap-3`}>
+      <svg viewBox="0 0 24 24" fill="none" className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-accent" aria-hidden>
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <div className="flex flex-col gap-1">
+        <p className="font-medium text-foreground">
+          {title} · <span className="tabular">{formatElapsed(seconds)}</span> 지남
+        </p>
+        <p className="text-xs text-muted">
+          지표를 모은 뒤 분류 3개의 초안을 동시에 쓰고 있어요. 보통 2~4분 걸려요. 창을 닫거나 새로고침하면 결과를 받지
+          못할 수 있어요.
+        </p>
+        {seconds >= 180 && (
+          <p className="text-xs text-muted">
+            조금 오래 걸리고 있어요. 4분이 넘으면 자동으로 멈추고, 실패한 분류만 다시 만들 수 있게 알려 드려요.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CreateReportButton({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
   const router = useRouter();
-  const [creating, setCreating] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const creating = startedAt !== null;
+  useLeaveWarning(creating);
 
   async function create() {
-    setCreating(true);
+    setStartedAt(startTime());
     setError(null);
     try {
       const response = await fetch("/api/reports", { method: "POST" });
@@ -70,7 +132,7 @@ export function CreateReportButton({ variant = "primary" }: { variant?: "primary
     } catch {
       setError("서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
-      setCreating(false);
+      setStartedAt(null);
     }
   }
 
@@ -79,10 +141,11 @@ export function CreateReportButton({ variant = "primary" }: { variant?: "primary
       ? BUTTON_PRIMARY
       : BUTTON_SECONDARY;
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex flex-col items-start gap-2">
       <button type="button" onClick={create} disabled={creating} className={style}>
-        {creating ? "초안 만드는 중… (몇십 초 걸릴 수 있어요)" : "새 초안 만들기"}
+        {creating ? "초안 만드는 중…" : "새 초안 만들기"}
       </button>
+      {startedAt !== null && <WaitingNotice title="AI가 새 초안을 쓰고 있어요" startedAt={startedAt} />}
       {error && <p className="text-sm text-red-600">⚠ {error}</p>}
     </div>
   );
@@ -113,6 +176,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
   const [saving, setSaving] = useState(false);
   // 다시 만드는 중인 분류 ("all"이면 전체)
   const [regenerating, setRegenerating] = useState<Category | "all" | null>(null);
+  const [regenerateStartedAt, setRegenerateStartedAt] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [warnings, setWarnings] = useState<SectionWarnings>({});
 
@@ -125,13 +189,8 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
     setWarnings(readWarnings(report.id));
   }, [report.id]);
 
-  // 저장하지 않고 창을 닫으려 하면 한 번 묻는다
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  // 저장하지 않았거나 다시 만드는 중에 창을 닫으려 하면 한 번 묻는다
+  useLeaveWarning(dirty || regenerating !== null);
 
   async function save(): Promise<boolean> {
     setSaving(true);
@@ -171,6 +230,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
     if (!only && dirty && !(await save())) return;
 
     setRegenerating(only ?? "all");
+    setRegenerateStartedAt(startTime());
     setNotice(null);
     try {
       const url = only
@@ -206,6 +266,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
       setNotice({ kind: "error", text: "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요." });
     } finally {
       setRegenerating(null);
+      setRegenerateStartedAt(null);
     }
   }
 
@@ -258,6 +319,13 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
         ))}
         {level === null && <span className={`text-sm ${muted}`}>아직 고르지 않았어요</span>}
       </fieldset>
+
+      {regenerating !== null && regenerateStartedAt !== null && (
+        <WaitingNotice
+          title={regenerating === "all" ? "AI가 고치지 않은 섹션을 다시 쓰고 있어요" : `AI가 ${CATEGORY_LABELS[regenerating]}을 다시 쓰고 있어요`}
+          startedAt={regenerateStartedAt}
+        />
+      )}
 
       {/* 분류별 섹션 */}
       {sections.map((section, index) => {
@@ -334,7 +402,7 @@ export function ReportEditor({ report, siblings }: { report: ReportWithSections;
             title="고친 섹션([고침])은 건너뛰고 나머지만 새로 만들어요"
             className={BUTTON_SECONDARY}
           >
-            {regenerating === "all" ? "다시 만드는 중… (몇십 초 걸릴 수 있어요)" : "전체 다시 만들기"}
+            {regenerating === "all" ? "다시 만드는 중…" : "전체 다시 만들기"}
           </button>
           <button
             type="button"
