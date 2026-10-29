@@ -5,6 +5,7 @@ import "server-only";
 import { INDICATORS, type Category } from "@/lib/indicators";
 import { buildDashboard, type DashboardSection } from "@/lib/dashboard";
 import { loadDashboardData } from "@/lib/dashboard-data";
+import type { SeriesById } from "@/lib/judge";
 import { assertAiConfigured, generateText } from "@/lib/openai";
 import { REPORT_INSTRUCTIONS, buildSectionInput, checkDraft } from "@/lib/report-prompt";
 import {
@@ -30,19 +31,17 @@ export type GeneratedSection = {
 export type GeneratedReport = { report: ReportRecord; sections: GeneratedSection[]; notices: string[] };
 
 // 지금의 판정 결과를 분류별로 모은다
-async function currentSections(today: string): Promise<{ sections: DashboardSection[]; sampleIds: Set<string>; notices: string[] }> {
+type Current = { sections: DashboardSection[]; series: SeriesById; sampleIds: Set<string>; notices: string[] };
+
+async function currentSections(today: string): Promise<Current> {
   const { series, sampleIds, failedIds, notices } = await loadDashboardData(today);
   const { sections } = buildDashboard(INDICATORS, series, today, failedIds);
-  return { sections, sampleIds, notices };
+  return { sections, series, sampleIds, notices };
 }
 
-async function generateSection(
-  section: DashboardSection,
-  sampleIds: Set<string>,
-  reportMonth: string,
-): Promise<GeneratedSection> {
-  const rows = section.rows.map((row) => ({ ...row, isSample: sampleIds.has(row.indicator.id) }));
-  const input = buildSectionInput(section.category, rows, reportMonth);
+async function generateSection(section: DashboardSection, current: Current, reportMonth: string): Promise<GeneratedSection> {
+  const rows = section.rows.map((row) => ({ ...row, isSample: current.sampleIds.has(row.indicator.id) }));
+  const input = buildSectionInput(section.category, rows, reportMonth, current.series);
   const base = { category: section.category, label: section.label };
   try {
     const { text } = await generateText({ instructions: REPORT_INSTRUCTIONS, input, maxOutputTokens: MAX_OUTPUT_TOKENS });
@@ -57,11 +56,12 @@ export async function generateReport(today: string): Promise<GeneratedReport> {
   // AI 설정이 없으면 빈 보고서를 남기지 않도록 아무것도 하기 전에 멈춘다
   assertAiConfigured();
   const reportMonth = today.slice(0, 7);
-  const { sections, sampleIds, notices } = await currentSections(today);
+  const current = await currentSections(today);
+  const { sections, notices } = current;
 
   // 저장소에 보고서 자리부터 만든다 (저장소에 문제가 있으면 AI를 부르기 전에 멈춘다)
   const report = await createReport(reportMonth);
-  const generated = await Promise.all(sections.map((section) => generateSection(section, sampleIds, reportMonth)));
+  const generated = await Promise.all(sections.map((section) => generateSection(section, current, reportMonth)));
 
   await saveSections(
     report.id,
@@ -108,10 +108,11 @@ export async function regenerateReport(id: number, today: string, only?: Categor
   const skipped = targets.filter((s) => s.is_edited).map((s) => s.category);
   const toRegenerate = targets.filter((s) => !s.is_edited);
 
-  const { sections, sampleIds, notices } = await currentSections(today);
+  const current = await currentSections(today);
+  const { sections, notices } = current;
   const generated = await Promise.all(
     toRegenerate.map((target) =>
-      generateSection(sections.find((s) => s.category === target.category)!, sampleIds, report.report_month),
+      generateSection(sections.find((s) => s.category === target.category)!, current, report.report_month),
     ),
   );
 

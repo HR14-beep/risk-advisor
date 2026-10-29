@@ -52,6 +52,7 @@ export type Component = {
   name: string;
   weight: number;
   source: SourceLink;
+  unit?: string; // 보고서 시사점에 값을 적을 때 쓰는 단위
   description?: string;
 };
 
@@ -167,17 +168,18 @@ export const INDICATORS: IndicatorDefinition[] = [
     unit: "점",
     source: KCIF,
     components: [
-      { id: "macro_financial.kospi", name: "KOSPI", weight: 0.2, source: KCIF },
+      { id: "macro_financial.kospi", name: "KOSPI", weight: 0.2, source: KCIF, unit: "pt" },
       { id: "macro_financial.vkospi", name: "VKOSPI", weight: 0.2, source: KCIF },
       {
         id: "macro_financial.credit_spread",
         name: "신용스프레드",
         weight: 0.25,
         source: KCIF,
+        unit: "%p",
         description: "회사채(AA) 3년물 금리 − 국고채 3년물 금리",
       },
-      { id: "macro_financial.korea_cds", name: "한국 CDS 프리미엄", weight: 0.25, source: KCIF },
-      { id: "macro_financial.usd_krw", name: "원/달러 환율", weight: 0.1, source: KCIF },
+      { id: "macro_financial.korea_cds", name: "한국 CDS 프리미엄", weight: 0.25, source: KCIF, unit: "bp" },
+      { id: "macro_financial.usd_krw", name: "원/달러 환율", weight: 0.1, source: KCIF, unit: "원" },
     ],
     publicationCycle: "daily",
     publishTiming: "익일",

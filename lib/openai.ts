@@ -4,8 +4,9 @@
 import "server-only";
 
 const API_URL = "https://api.openai.com/v1/responses";
-// 보고서 한 분류(A4 1쪽 남짓)를 쓰는 데 충분한 시간
-const TIMEOUT_MS = 120_000;
+// 보고서 한 분류(A4 1쪽 남짓)를 쓰는 데 충분한 시간. 생각하는 모델(예: pro)은 2분 넘게 걸릴 수 있다.
+// 서버 API 최대 실행 시간(maxDuration 300초)보다 조금 짧게 둔다
+const TIMEOUT_MS = 270_000;
 
 export class AiConfigError extends Error {
   constructor(missing: string[]) {
@@ -22,7 +23,7 @@ const AI_ERROR_MESSAGES: Record<AiErrorKind, string> = {
   auth: "AI 연결 설정을 확인해 주세요. (키가 맞지 않습니다)",
   quota: "AI 사용 한도를 넘었거나 결제 정보가 없습니다. 잠시 후 다시 시도하거나 OpenAI 결제 설정을 확인해 주세요.",
   model: "AI 연결 설정을 확인해 주세요. (OPENAI_MODEL 모델을 쓸 수 없습니다)",
-  timeout: "AI 응답이 너무 늦어 멈췄어요. 다시 만들어 주세요.",
+  timeout: "AI 응답이 4분 넘게 없어 멈췄어요. 다시 만들거나, 더 빠른 모델(OPENAI_MODEL)을 써 주세요.",
   network: "AI 서버에 연결하지 못했어요. 잠시 후 다시 만들어 주세요.",
   server: "AI 서버에 문제가 생겼어요. 잠시 후 다시 만들어 주세요.",
   incomplete: "AI 초안이 중간에 끊겼어요. 다시 만들어 주세요.",

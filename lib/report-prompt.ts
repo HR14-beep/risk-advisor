@@ -4,6 +4,8 @@ import { CATEGORY_LABELS, RISK_LEVELS, RISK_LEVEL_LABELS, type Category } from "
 import type { DashboardRow } from "@/lib/dashboard";
 import { DISPLAY_STATUS_LABELS, NO_DATA_REASONS, formatChange, formatDay, formatValue } from "@/lib/format";
 import { periodLabel } from "@/lib/period";
+import type { SeriesById } from "@/lib/judge";
+import { indicatorInsights } from "@/lib/insights";
 
 export const AI_DRAFT_NOTICE = "AI 초안 – 담당자 검토 필요";
 
@@ -20,18 +22,21 @@ export const REPORT_INSTRUCTIONS = `너는 공공기관 리스크관리부의 �
 5. 변동은 입력의 "직전 대비"(월 지표는 지난달, 분기 지표는 직전 분기) 값으로만 설명한다.
 6. "발표 전" 지표는 "발표 전(직전 ○○ 값 참고)"처럼 적고, 직전 값을 이번 기간 값처럼 쓰지 않는다.
 7. "수집 실패" 지표는 "수집 실패, 직전 값 기준일 ○○"처럼 적고, 직전 값을 최신 값처럼 쓰지 않는다.
-8. 입력에 "실습용 가상 값"으로 표시된 지표는 그 사실을 함께 적는다.
+8. 입력에 "실습용 가상 값"으로 표시된 지표는 그 사실을 함께 적고, 그 지표의 외부 통계는 시사점의 근거로 쓰지 않는다.
 9. 특정 투자·거래(매수·매도·비중 조절 등)를 권유하는 표현은 쓰지 않는다. 대응 제언은 점검·모니터링·관리 강화 같은 리스크 관리 행동으로 쓴다.
-10. 보고서 맨 위의 "${AI_DRAFT_NOTICE}" 표시와 분류 제목은 앱이 붙이므로 쓰지 않는다.
+10. 시사점은 입력의 "외부 통계"(5년 평균·범위 안 위치·전년 같은 기간 대비·최근 추세)만 근거로 쓴다.
+   - 근거가 된 통계의 출처 기관을 함께 적는다 (예: "한국은행 ECOS 기준").
+   - 여러 지표의 움직임을 엮어 해석할 수 있지만(예: 연체율 상승과 중소기업 고정이하여신비율 상승이 함께 나타남), 앞으로의 수치를 예측하거나 원인을 단정하지 않는다.
+11. 보고서 맨 위의 "${AI_DRAFT_NOTICE}" 표시와 분류 제목은 앱이 붙이므로 쓰지 않는다.
 
 [형식]
 - 한국어 보고서 문체(~함, ~임)로 쓴다.
-- 아래 세 소제목을 이 순서로 쓴다: "1. 변동 요약", "2. 지표별 리스크 수준", "3. 대응 제언"
+- 아래 네 소제목을 이 순서로 쓴다: "1. 변동 요약", "2. 지표별 리스크 수준", "3. 외부 통계로 본 시사점", "4. 대응 제언"
 - 분량은 이 분류에 A4 1쪽 내외(보고서 전체 3~4쪽)로 하되, 내용상 필요하면 넘어도 된다.`;
 
 export type ReportRow = DashboardRow & { isSample: boolean };
 
-function describeRow(row: ReportRow): string {
+function describeRow(row: ReportRow, seriesById: SeriesById): string {
   const { indicator, period, result, status, previous, change, collectionFailure, deadline, noDataReason } = row;
   const parts = [`지표: ${indicator.name}`, `판정: ${DISPLAY_STATUS_LABELS[status]}`, `기준 기간: ${periodLabel(period)}`];
 
@@ -55,16 +60,26 @@ function describeRow(row: ReportRow): string {
   if (noDataReason) parts.push(`사유: ${NO_DATA_REASONS[noDataReason]}`);
   if (collectionFailure) parts.push(`수집 실패, 직전 값 기준일 ${collectionFailure.lastDate ?? "없음"}`);
   if (row.isSample) parts.push("실습용 가상 값");
-  return `- ${parts.join(" | ")}`;
+  const line = `- ${parts.join(" | ")}`;
+
+  // 판정에 쓴 기간(발표 전이면 직전 발표 기간)의 외부 통계
+  const statsPeriod = result ? period : previous?.period;
+  const insights = statsPeriod && !row.isSample ? indicatorInsights(indicator, seriesById, statsPeriod) : [];
+  return [line, ...insights.map((text) => `  · 외부 통계: ${text}`)].join("\n");
 }
 
-export function buildSectionInput(category: Category, rows: ReportRow[], reportMonth: string): string {
+export function buildSectionInput(
+  category: Category,
+  rows: ReportRow[],
+  reportMonth: string,
+  seriesById: SeriesById = {},
+): string {
   return [
     `보고 월: ${periodLabel(reportMonth)}`,
     `분류: ${CATEGORY_LABELS[category]} (${rows.length}개 지표)`,
     "",
     "[지표별 판정 결과]",
-    ...rows.map(describeRow),
+    ...rows.map((row) => describeRow(row, seriesById)),
   ].join("\n");
 }
 
