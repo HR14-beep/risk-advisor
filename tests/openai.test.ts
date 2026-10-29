@@ -1,0 +1,92 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AiConfigError, AiError, extractText, generateText } from "@/lib/openai";
+
+// 실제 OpenAI를 부르지 않고 가짜 응답으로 채점한다
+function mockFetch(status: number, body: unknown) {
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+const OK_BODY = {
+  status: "completed",
+  model: "test-model",
+  output: [
+    { type: "reasoning", content: [] },
+    { type: "message", content: [{ type: "output_text", text: " 초안입니다. " }] },
+  ],
+  usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+};
+
+beforeEach(() => {
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("OPENAI_MODEL", "test-model");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("OpenAI 연결", () => {
+  it("규칙과 내용을 보내고, AI가 쓴 글만 꺼내 돌려준다", async () => {
+    const fetchMock = mockFetch(200, OK_BODY);
+    const result = await generateText({ instructions: "규칙", input: "내용" });
+
+    expect(result).toEqual({
+      text: "초안입니다.",
+      model: "test-model",
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.openai.com/v1/responses");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      model: "test-model",
+      instructions: "규칙",
+      input: "내용",
+      store: false,
+    });
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer test-key");
+  });
+
+  it("키나 모델 이름이 없으면 부르지 않고 설정 안내를 한다", async () => {
+    const fetchMock = mockFetch(200, OK_BODY);
+    vi.stubEnv("OPENAI_MODEL", "");
+    await expect(generateText({ instructions: "", input: "" })).rejects.toThrow(AiConfigError);
+    await expect(generateText({ instructions: "", input: "" })).rejects.toThrow("OPENAI_MODEL");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, "auth"],
+    [429, "quota"],
+    [404, "model"],
+    [500, "server"],
+  ])("응답 %i은 %s 오류", async (status, kind) => {
+    mockFetch(status, { error: { message: "x" } });
+    await expect(generateText({ instructions: "", input: "" })).rejects.toMatchObject({ kind });
+  });
+
+  it("생성이 중간에 끊기거나 답이 비면 다시 만들도록 알린다", async () => {
+    mockFetch(200, { status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output: [] });
+    await expect(generateText({ instructions: "", input: "" })).rejects.toMatchObject({ kind: "incomplete" });
+
+    mockFetch(200, { status: "completed", output: [] });
+    await expect(generateText({ instructions: "", input: "" })).rejects.toMatchObject({ kind: "empty" });
+  });
+
+  it("서버에 연결하지 못하면 network 오류", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))));
+    const error = await generateText({ instructions: "", input: "" }).catch((e) => e);
+    expect(error).toBeInstanceOf(AiError);
+    expect(error.kind).toBe("network");
+  });
+
+  it("글 조각이 여러 개면 이어 붙인다", () => {
+    expect(
+      extractText({
+        output: [{ content: [{ type: "output_text", text: "가" }, { type: "refusal" }, { type: "output_text", text: "나" }] }],
+      }),
+    ).toBe("가나");
+  });
+});
